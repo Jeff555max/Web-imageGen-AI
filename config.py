@@ -16,7 +16,7 @@ class Config:
     
     # OpenRouter настройки
     OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-    IMAGE_MODEL = "openai/gpt-5-image-mini"
+    IMAGE_MODEL = "google/gemini-2.5-flash-image"
     PROMPT_MODEL = "openai/gpt-4o-mini"
     
     # Настройки приложения
