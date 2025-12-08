@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Image Generator AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Заголовок -->
+        <header class="text-center my-5">
+            <h1 class="display-4">🎨 Web Image Generator AI</h1>
+            <p class="lead">Создавайте удивительные изображения с помощью искусственного интеллекта</p>
+        </header>
+
+        <!-- Основная форма -->
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card shadow-lg">
+                    <div class="card-body p-4">
+                        
+                        <!-- Поле ввода промпта -->
+                        <div class="mb-4">
+                            <label for="userPrompt" class="form-label fs-5">Опишите изображение</label>
+                            <textarea 
+                                class="form-control form-control-lg" 
+                                id="userPrompt" 
+                                rows="4" 
+                                placeholder="Введите описание того, что вы хотите увидеть на изображении..."
+                                maxlength="1000"
+                            ></textarea>
+                            <div class="form-text">
+                                <span id="charCount">0</span> / 1000 символов
+                            </div>
+                        </div>
+
+                        <!-- Выбор стиля -->
+                        <div class="mb-4">
+                            <label for="imageStyle" class="form-label fs-5">Стиль изображения</label>
+                            <select class="form-select form-select-lg" id="imageStyle">
+                                <option value="без_стиля">Без стиля</option>
+                                <option value="реалистичный">Реалистичный</option>
+                                <option value="аниме">Аниме</option>
+                                <option value="киберпанк">Киберпанк</option>
+                                <option value="фэнтези">Фэнтези</option>
+                                <option value="акварель">Акварель</option>
+                                <option value="масляная_живопись">Масляная живопись</option>
+                                <option value="эскиз">Эскиз</option>
+                                <option value="3d_рендер">3D рендер</option>
+                                <option value="винтаж">Винтаж</option>
+                                <option value="минимализм">Минимализм</option>
+                            </select>
+                        </div>
+
+                        <!-- Выбор размера изображения -->
+                        <div class="mb-4">
+                            <label for="imageSize" class="form-label fs-5">Размер изображения</label>
+                            <select class="form-select form-select-lg" id="imageSize">
+                                <option value="1024x1024">Квадрат (1024x1024)</option>
+                                <option value="1024x1792">Портрет (1024x1792)</option>
+                                <option value="1792x1024">Альбом (1792x1024)</option>
+                            </select>
+                        </div>
+
+                        <!-- Улучшенный промпт (скрыт по умолчанию) -->
+                        <div id="enhancedPromptSection" class="mb-4" style="display: none;">
+                            <label class="form-label fs-5">Улучшенный промпт</label>
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <p id="enhancedPromptText" class="mb-0"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Кнопки управления -->
+                        <div class="d-grid gap-2 mb-4">
+                            <button id="enhanceBtn" class="btn btn-primary btn-lg">
+                                ✨ Улучшить промпт (опционально)
+                            </button>
+                            <button id="generateBtn" class="btn btn-success btn-lg" disabled>
+                                🎨 Генерировать изображение
+                            </button>
+                        </div>
+
+                        <!-- Прогресс бар -->
+                        <div id="progressSection" class="mb-4" style="display: none;">
+                            <div class="progress" style="height: 30px;">
+                                <div 
+                                    id="progressBar" 
+                                    class="progress-bar progress-bar-striped progress-bar-animated" 
+                                    role="progressbar" 
+                                    style="width: 0%"
+                                >
+                                    <span id="progressText">Инициализация...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Результат генерации -->
+                        <div id="resultSection" class="mt-4" style="display: none;">
+                            <h4 class="mb-3">Результат</h4>
+                            
+                            <!-- Контейнер изображения -->
+                            <div class="text-center mb-3">
+                                <img 
+                                    id="generatedImage" 
+                                    class="img-fluid rounded shadow-lg" 
+                                    style="max-width: 100%; cursor: pointer;"
+                                    alt="Сгенерированное изображение"
+                                >
+                            </div>
+
+                            <!-- Информация о промпте -->
+                            <div class="card bg-light mb-3">
+                                <div class="card-body">
+                                    <h6 class="card-title">Использованный промпт:</h6>
+                                    <p id="usedPrompt" class="card-text small mb-0"></p>
+                                </div>
+                            </div>
+
+                            <!-- Кнопки действий -->
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <button id="downloadBtn" class="btn btn-primary w-100">
+                                        📥 Скачать изображение
+                                    </button>
+                                </div>
+                                <div class="col-md-6">
+                                    <button id="createNewBtn" class="btn btn-secondary w-100">
+                                        🔄 Создать ещё
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Секция исправления -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <button 
+                                        id="showCorrectionBtn" 
+                                        class="btn btn-link w-100 text-start text-decoration-none"
+                                        type="button"
+                                    >
+                                        ✏️ Исправить или дополнить изображение
+                                    </button>
+                                </div>
+                                <div id="correctionPanel" class="card-body" style="display: none;">
+                                    <textarea 
+                                        id="correctionPrompt" 
+                                        class="form-control mb-3" 
+                                        rows="3"
+                                        placeholder="Опишите, что нужно изменить или добавить к изображению..."
+                                    ></textarea>
+                                    <button id="applyCorrectionBtn" class="btn btn-warning w-100">
+                                        ✅ Применить изменения
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Футер -->
+        <footer class="text-center my-5">
+            <p class="text-muted">
+                &copy; 2025 Web Image Generator AI. Все права защищены.
+            </p>
+        </footer>
+    </div>
+
+    <!-- Модальное окно для увеличения изображения -->
+    <div class="modal fade" id="imageModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Сгенерированное изображение</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="modalImage" class="img-fluid" alt="Увеличенное изображение">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
