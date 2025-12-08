@@ -1,6 +1,6 @@
 # 🎨 Web Image Generator AI
 
-Современное веб-приложение для генерации изображений с использованием искусственного интеллекта на базе GPT-5 Image Mini через OpenRouter API.
+Современное веб-приложение для генерации изображений с использованием искусственного интеллекта на базе Gemini 2.5 Flash Image через OpenRouter API.
 
 ## ✨ Особенности
 
@@ -140,7 +140,7 @@ Web-imageGen-AI/
 
 - **Backend**: Python, Flask, OpenRouter API
 - **Frontend**: HTML5, CSS3, JavaScript, Bootstrap
-- **AI Models**: GPT-5 Image Mini (генерация изображений), GPT-4o-mini (улучшение промптов)
+- **AI Models**: Gemini 2.5 Flash Image (генерация изображений), GPT-4o-mini (улучшение промптов)
 - **Конфигурация**: python-dotenv
 
 

@@ -1,5 +1,5 @@
 """
-Сервис для генерации изображений с помощью GPT-5 Image Mini через OpenRouter.
+Сервис для генерации изображений с помощью Gemini 2.5 Flash Image через OpenRouter.
 """
 
 import requests
@@ -12,7 +12,7 @@ from config import config
 
 
 class ImageGenerator:
-    """Класс для генерации изображений с использованием GPT-5 Image Mini через OpenRouter."""
+    """Класс для генерации изображений с использованием Gemini 2.5 Flash Image через OpenRouter."""
     
     # Доступные размеры
     AVAILABLE_SIZES = ["1024x1024", "1024x1792", "1792x1024"]
@@ -43,7 +43,7 @@ class ImageGenerator:
         style: str = "vivid"
     ) -> Dict:
         """
-        Генерирует изображение с помощью GPT-5 Image Mini.
+        Генерирует изображение с помощью Gemini 2.5 Flash Image.
         
         Args:
             prompt: Текстовое описание изображения
@@ -63,7 +63,7 @@ class ImageGenerator:
             if style not in self.AVAILABLE_STYLES:
                 style = "vivid"
             
-            # Запрос к GPT-5 Image Mini через OpenRouter
+            # Запрос к Gemini 2.5 Flash Image через OpenRouter
             response = requests.post(
                 f"{self.base_url}/chat/completions",
                 headers=self.headers,
@@ -107,7 +107,7 @@ class ImageGenerator:
             
             # Проверяем наличие изображений в других полях
             if not image_url:
-                # Проверяем поле images в message (формат GPT-5 Image Mini)
+                # Проверяем поле images в message (формат Gemini/OpenRouter)
                 images = message.get("images", [])
                 if images:
                     img = images[0]
