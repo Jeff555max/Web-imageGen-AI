@@ -63,6 +63,14 @@ class ImageGenerator:
             if style not in self.AVAILABLE_STYLES:
                 style = "vivid"
             
+            # Конвертируем размер в aspect_ratio для Gemini
+            aspect_ratio_map = {
+                "1024x1024": "1:1",
+                "1024x1792": "9:16",  # Портретный
+                "1792x1024": "16:9"   # Альбомный
+            }
+            aspect_ratio = aspect_ratio_map.get(size, "1:1")
+            
             # Запрос к Gemini 2.5 Flash Image через OpenRouter
             response = requests.post(
                 f"{self.base_url}/chat/completions",
@@ -72,9 +80,13 @@ class ImageGenerator:
                     "messages": [
                         {
                             "role": "user",
-                            "content": f"Generate an image: {prompt}"
+                            "content": prompt
                         }
-                    ]
+                    ],
+                    "modalities": ["image", "text"],
+                    "image_config": {
+                        "aspect_ratio": aspect_ratio
+                    }
                 },
                 timeout=120
             )

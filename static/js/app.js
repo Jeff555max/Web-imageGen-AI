@@ -196,7 +196,7 @@ async function handleGenerateImage() {
             
             // Отображаем изображение
             generatedImage.src = data.image_url;
-            usedPrompt.textContent = data.revised_prompt || promptToUse;
+            usedPrompt.textContent = promptToUse;
             
             updateProgress(100, 'Готово!');
             
