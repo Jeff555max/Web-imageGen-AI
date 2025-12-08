@@ -2,8 +2,8 @@
 Сервис для улучшения промптов с помощью GPT-4o-mini через OpenRouter.
 """
 
-from openai import OpenAI
-from typing import Dict, Optional
+import requests
+from typing import Dict
 from config import config
 
 
@@ -13,7 +13,7 @@ class PromptEnhancer:
     # Словарь системных промптов для различных стилей
     STYLE_PROMPTS = {
         "без_стиля": {
-            "system": """Улучши промпт пользователя для DALL-E 3, сохраняя естественность и реалистичность.
+            "system": """Улучши промпт пользователя для генерации изображения, сохраняя естественность и реалистичность.
 Добавь только необходимые детали качества и композиции.
 Не навязывай конкретный художественный стиль.
 Отвечай ТОЛЬКО улучшенным промптом на английском языке, без дополнительных пояснений.""",
@@ -103,42 +103,42 @@ class PromptEnhancer:
     
     def __init__(self):
         """Инициализация клиента OpenRouter."""
-        self.client = OpenAI(
-            api_key=config.OPENROUTER_API_KEY,
-            base_url=config.OPENROUTER_BASE_URL
-        )
+        self.api_key = config.OPENROUTER_API_KEY
+        self.base_url = config.OPENROUTER_BASE_URL
         self.model = config.PROMPT_MODEL
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://localhost:5000",
+            "X-Title": "Web Image Generator AI"
+        }
     
     def enhance_prompt(self, user_prompt: str, style: str = "без_стиля") -> Dict[str, str]:
         """
         Улучшает пользовательский промпт с учетом выбранного стиля.
-        
-        Args:
-            user_prompt: Исходный промпт от пользователя
-            style: Выбранный стиль изображения
-            
-        Returns:
-            Словарь с оригинальным и улучшенным промптом
         """
         try:
-            # Получаем системный промпт для выбранного стиля
             style_config = self.STYLE_PROMPTS.get(style, self.STYLE_PROMPTS["без_стиля"])
             
-            # Запрос к GPT-4o-mini через OpenRouter для улучшения промпта
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": style_config["system"]},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.7,
-                max_tokens=200
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=self.headers,
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": style_config["system"]},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 200
+                },
+                timeout=30
             )
             
-            # Получаем улучшенный промпт
-            enhanced_prompt = response.choices[0].message.content.strip()
+            response.raise_for_status()
+            data = response.json()
             
-            # Добавляем суффикс стиля
+            enhanced_prompt = data["choices"][0]["message"]["content"].strip()
             final_prompt = f"{enhanced_prompt}{style_config['suffix']}"
             
             return {
@@ -148,7 +148,6 @@ class PromptEnhancer:
             }
             
         except Exception as e:
-            # В случае ошибки возвращаем оригинальный промпт
             return {
                 "original": user_prompt,
                 "enhanced": user_prompt,
@@ -159,16 +158,9 @@ class PromptEnhancer:
     def enhance_for_correction(self, original_prompt: str, correction: str) -> str:
         """
         Создает промпт для исправления существующего изображения.
-        
-        Args:
-            original_prompt: Оригинальный промпт, использованный для генерации
-            correction: Описание желаемых изменений от пользователя
-            
-        Returns:
-            Объединенный промпт для генерации исправленного изображения
         """
         try:
-            system_prompt = """Ты помогаешь создавать промпты для модификации изображений в DALL-E 3.
+            system_prompt = """Ты помогаешь создавать промпты для модификации изображений.
 На основе оригинального описания и желаемых изменений создай новый промпт.
 Сохрани основную концепцию, но добавь запрошенные изменения.
 Отвечай ТОЛЬКО новым промптом на английском языке."""
@@ -179,18 +171,25 @@ class PromptEnhancer:
 
 Создай новый промпт, который сохранит основную идею, но учтет изменения."""
             
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
-                ],
-                temperature=0.7,
-                max_tokens=250
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=self.headers,
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 250
+                },
+                timeout=30
             )
             
-            return response.choices[0].message.content.strip()
+            response.raise_for_status()
+            data = response.json()
+            
+            return data["choices"][0]["message"]["content"].strip()
             
         except Exception as e:
-            # В случае ошибки объединяем промпты вручную
             return f"{original_prompt}. Modified: {correction}"

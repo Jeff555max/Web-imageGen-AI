@@ -2,9 +2,8 @@
 Сервис для генерации изображений с помощью GPT-5 Image Mini через OpenRouter.
 """
 
-from openai import OpenAI
-from typing import Dict, Optional
 import requests
+from typing import Dict, Optional
 from io import BytesIO
 from PIL import Image
 import base64
@@ -26,26 +25,30 @@ class ImageGenerator:
     
     def __init__(self):
         """Инициализация клиента OpenRouter."""
-        self.client = OpenAI(
-            api_key=config.OPENROUTER_API_KEY,
-            base_url=config.OPENROUTER_BASE_URL
-        )
+        self.api_key = config.OPENROUTER_API_KEY
+        self.base_url = config.OPENROUTER_BASE_URL
         self.model = config.IMAGE_MODEL
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://localhost:5000",
+            "X-Title": "Web Image Generator AI"
+        }
     
     def generate_image(
         self,
         prompt: str,
         size: str = "1024x1024",
-        quality: str = "hd",
+        quality: str = "auto",
         style: str = "vivid"
     ) -> Dict:
         """
-        Генерирует изображение с помощью DALL-E 3.
+        Генерирует изображение с помощью GPT-5 Image Mini.
         
         Args:
             prompt: Текстовое описание изображения
             size: Размер изображения (1024x1024, 1024x1792, 1792x1024)
-            quality: Качество изображения (standard, hd)
+            quality: Качество изображения
             style: Стиль изображения (vivid, natural)
             
         Returns:
@@ -56,57 +59,78 @@ class ImageGenerator:
             if size not in self.AVAILABLE_SIZES:
                 size = "1024x1024"
             if quality not in self.AVAILABLE_QUALITIES:
-                quality = "hd"
+                quality = "auto"
             if style not in self.AVAILABLE_STYLES:
                 style = "vivid"
             
             # Запрос к GPT-5 Image Mini через OpenRouter
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"Generate an image: {prompt}"
-                    }
-                ],
-                extra_body={
-                    "image_generation": {
-                        "size": size,
-                        "quality": quality if quality in ["low", "medium", "high", "auto"] else "auto"
-                    }
-                }
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=self.headers,
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": f"Generate an image: {prompt}"
+                        }
+                    ]
+                },
+                timeout=120
             )
             
-            # Получаем результат - изображение в base64 из ответа
-            message = response.choices[0].message
+            response.raise_for_status()
+            data = response.json()
+            
+            # Получаем результат
+            message = data.get("choices", [{}])[0].get("message", {})
+            content = message.get("content", "")
+            
             image_url = None
             revised_prompt = prompt
             
-            # Проверяем наличие изображения в ответе
-            if hasattr(message, 'content') and message.content:
-                # Ищем URL изображения в контенте
-                if isinstance(message.content, list):
-                    for content_part in message.content:
-                        if hasattr(content_part, 'type') and content_part.type == 'image_url':
-                            image_url = content_part.image_url.url
-                        elif hasattr(content_part, 'image_url'):
-                            image_url = content_part.image_url.get('url') if isinstance(content_part.image_url, dict) else content_part.image_url.url
-                elif isinstance(message.content, str):
-                    revised_prompt = message.content
+            # Проверяем разные форматы ответа
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict):
+                        if item.get("type") == "image_url":
+                            image_url = item.get("image_url", {}).get("url")
+                        elif "image_url" in item:
+                            img_data = item["image_url"]
+                            image_url = img_data.get("url") if isinstance(img_data, dict) else img_data
+            elif isinstance(content, str):
+                # Контент может содержать текст или base64 изображение
+                if content.startswith("data:image"):
+                    image_url = content
+                else:
+                    revised_prompt = content
             
-            # Проверяем также атрибут images если есть
-            if hasattr(response, 'images') and response.images:
-                image_url = response.images[0].url if hasattr(response.images[0], 'url') else response.images[0]
-            
-            # Альтернативная проверка через data
-            if not image_url and hasattr(response, 'data') and response.data:
-                for item in response.data:
-                    if hasattr(item, 'url'):
-                        image_url = item.url
-                        break
-                    if hasattr(item, 'b64_json'):
-                        image_url = f"data:image/png;base64,{item.b64_json}"
-                        break
+            # Проверяем наличие изображений в других полях
+            if not image_url:
+                # Проверяем поле images в message (формат GPT-5 Image Mini)
+                images = message.get("images", [])
+                if images:
+                    img = images[0]
+                    if isinstance(img, dict):
+                        # Формат: {"type": "image_url", "image_url": {"url": "..."}}
+                        img_url_data = img.get("image_url", {})
+                        if isinstance(img_url_data, dict):
+                            image_url = img_url_data.get("url")
+                        else:
+                            image_url = img_url_data
+                    else:
+                        image_url = img
+                
+                # Проверяем поле data (формат DALL-E)
+                if not image_url:
+                    image_data = data.get("data", [])
+                    if image_data:
+                        img = image_data[0]
+                        if isinstance(img, dict):
+                            image_url = img.get("url") or img.get("b64_json")
+                            if img.get("b64_json"):
+                                image_url = f"data:image/png;base64,{img['b64_json']}"
+                            revised_prompt = img.get("revised_prompt", revised_prompt)
             
             return {
                 "success": True,
@@ -118,6 +142,12 @@ class ImageGenerator:
                 "original_prompt": prompt
             }
             
+        except requests.exceptions.RequestException as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "original_prompt": prompt
+            }
         except Exception as e:
             return {
                 "success": False,
@@ -128,12 +158,6 @@ class ImageGenerator:
     def download_image(self, url: str) -> Optional[BytesIO]:
         """
         Скачивает изображение по URL.
-        
-        Args:
-            url: URL изображения
-            
-        Returns:
-            BytesIO объект с изображением или None в случае ошибки
         """
         try:
             response = requests.get(url, timeout=30)
@@ -146,12 +170,6 @@ class ImageGenerator:
     def image_to_base64(self, image_url: str) -> Optional[str]:
         """
         Конвертирует изображение по URL в base64 строку.
-        
-        Args:
-            image_url: URL изображения
-            
-        Returns:
-            Base64 строка изображения или None
         """
         try:
             image_data = self.download_image(image_url)
@@ -170,18 +188,8 @@ class ImageGenerator:
     def generate_filename(prompt: str) -> str:
         """
         Генерирует имя файла на основе промпта и времени.
-        
-        Args:
-            prompt: Текстовое описание изображения
-            
-        Returns:
-            Имя файла для сохранения
         """
-        # Берем первые 30 символов промпта, очищаем от спецсимволов
         clean_prompt = "".join(c for c in prompt[:30] if c.isalnum() or c in (' ', '-', '_'))
         clean_prompt = clean_prompt.replace(' ', '_')
-        
-        # Добавляем временную метку
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        return f"dalle3_{clean_prompt}_{timestamp}.png"
+        return f"image_{clean_prompt}_{timestamp}.png"
